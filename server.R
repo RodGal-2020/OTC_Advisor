@@ -17,7 +17,8 @@ function(input, output, session) {
     df <- read_excel(input$file$datapath)
 
       # Clean the data
-      df %<>% mutate(Class = as.factor(Class))
+      df %<>%
+        mutate(Class = as.factor(Class))
 
     data(df)
   })
@@ -56,24 +57,41 @@ function(input, output, session) {
           any(!is.na(df$Latitude)) && any(!is.na(df$Longitude))) {
 
         # Compute the color for each row using the palette
-        palette_func <- colorFactor(
-          palette = sample(colors(), nrow(unique(df$OTC_Prediction)), replace = TRUE),
-          domain = df$OTC_Prediction[[1]]
+        pal <- colorNumeric(
+          # palette = viridis::viridis(256, option = "B", direction = -1),
+          palette = heat.colors(256, rev = TRUE),
+          domain = df$Air_temperature
         )
 
-        df$color <- palette_func(df$OTC_Prediction)
+        df %>%
+          leaflet() %>%
+            setView(lng = mean(df$Longitude), lat = mean(df$Latitude), zoom = 12.5) %>%
 
-        leaflet(df) %>%
-          addTiles() %>%
-          addCircleMarkers(
-            lng = ~Longitude,
-            lat = ~Latitude,
-            color = ~color,
-            radius = 6,
-            stroke = FALSE,
-            fillOpacity = 0.8,
-            popup = ~paste("OTC:", OTC_Prediction)
+            # addMapPane("baseMap", zIndex = 410) %>%  # Create a new map pane
+            addProviderTiles("CartoDB.Positron") %>%
+            addTiles() %>%
+
+            addCircleMarkers(
+              lng = ~Longitude,
+              lat = ~Latitude,
+              stroke = TRUE,
+              weight = 1,
+              color = "black",
+              # fillColor = ~viridis::viridis(nrow(df), option = "B")[rank(df$Air_temperature)],
+              fillColor = ~heat.colors(nrow(df), rev = TRUE)[rank(df$Air_temperature)],
+              radius = 5,
+              opacity = 1,
+              fillOpacity = 0.7,
+              label = ~sprintf("Air_temperature: %s", round(Air_temperature, 2))
+            ) %>%
+          addLegend(
+            position = "bottomright",
+            pal = pal,
+            values = df$Air_temperature,
+            title = "Air temperature (°C)",
+            opacity = 0.7
           )
+
       } else {
         leaflet() %>%
           addTiles() %>%
@@ -84,14 +102,11 @@ function(input, output, session) {
 
   })
 
-  # Definir una paleta de colores para OTC Prediction
-  pal <- reactive({
-    colorFactor(palette = c("blue", "green", "red"), domain = result_data()$OTC_Prediction)
-  })
-
   output$results <- renderDT({
     req(result_data())
-    datatable(result_data(), options = list(scrollX = TRUE))
+    df <- result_data()
+    data_table <- df %>% mutate(across(all_numeric(), ~ round(., 3)))
+    datatable(data_table , options = list(scrollX = TRUE))
   })
 
   output$download <- downloadHandler(
