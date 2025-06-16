@@ -105,10 +105,10 @@ function(input, output, session) {
   })
 
   output$results <- renderDT({
-    req(result_data())
+    req(df)
     df <- result_data()
-    data_table <- df %>% mutate(across(all_numeric(), ~ round(., 3)))
-    datatable(data_table , options = list(scrollX = TRUE))
+    df %<>% mutate(across(recipes::all_numeric(), ~ round(., 3)))
+    datatable(df , options = list(scrollX = TRUE))
   })
 
   output$download <- downloadHandler(
