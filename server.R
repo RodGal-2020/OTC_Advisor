@@ -3,6 +3,8 @@ library(readxl)
 library(openxlsx)
 library(DT)
 library(here)
+library(magrittr)
+library(dplyr)
 
 # Cargar tu modelo personalizado
 load(here("models", "MODEL_NAME.RData"))  # Asegúrate de que esto carga un objeto llamado MODEL_NAME
