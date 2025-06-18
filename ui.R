@@ -7,12 +7,26 @@ library(leaflet)
 header <- dashboardHeader(title = "OTC Classifier")
 
 sidebar <- dashboardSidebar(
-  fileInput("file", "📤 Upload Excel File", accept = ".xlsx"),
-  checkboxInput("has_mrt", "✔ Includes MRT", value = TRUE),
+  fileInput("file", "📤 Upload Excel, CSV or ZIP File", accept = c(".xlsx", ".csv", ".zip", ".gpkg")),
+
+  radioButtons("utci_method", "🌡️ UTCI Source:",
+               choices = c(
+                 "Includes UTCI column" = "utci",
+                 "Includes MRT column" = "mrt",
+                 "Calculate from Globe Temperature" = "tg",
+                 "Calculate from Solar Radiation" = "solar"
+               ),
+               selected = "utci"),
   checkboxInput("has_geo", "✔ Includes Coordinates", value = TRUE),
+  selectInput("var_map", "Variable a representar:",
+              choices = c("Air_temperature", "Relative_humidity", "Wind_speed", "UTCI"), selected = "Air_temperature"),
+  selectInput("basemap", "Selecciona mapa base",
+              choices = c("Stadia", "Satélite", "Esri", "OSM")),
+  leafletOutput("map"),
   actionButton("classify", "⚙️ Classify OTC", class = "btn-primary"),
   br(), br(),
   downloadButton("download", "⬇️ Download Results")
+
 )
 
 body <- dashboardBody(

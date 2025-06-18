@@ -3,7 +3,8 @@ library(magrittr)
 library(tidymodels)
 
 # Load the dataset
-Data <- read_xlsx(here::here("templates/OTC_data.xlsx"))
+# Data <- read_xlsx(here::here("templates/OTC_data.xlsx"))
+Data <- read_xlsx(here::here("templates/utheca_data.xlsx"))
 # Colnames:
 # Longitude Latitude Air_temperature Relative_humidity Wind_speed Solar_radiation
 
@@ -14,7 +15,8 @@ Data %<>% mutate(Class = as.factor(Class))
 MODEL_NAME <- multinom_reg() %>%
   set_engine("nnet") %>%
   fit(
-    Class ~ Air_temperature + Relative_humidity + Wind_speed + Solar_radiation,
+    # Class ~ Air_temperature + Relative_humidity + Wind_speed + Solar_radiation,
+    Class ~ Air_temperature + Relative_humidity + Wind_speed + Globe_temperature,
     data = Data
   )
 

@@ -5,110 +5,151 @@ library(DT)
 library(here)
 library(magrittr)
 library(dplyr)
+library(terra)
+library(gstat)
+library(FNN)
 
 # Cargar tu modelo personalizado
 load(here("models", "MODEL_NAME.RData"))  # Asegúrate de que esto carga un objeto llamado MODEL_NAME
+
+source("read_files/load_files.R")
+source("functions/calculate_mrt.R")
+source("functions/calculate_utci.R")
+source("functions/map_module.R")
+
 
 function(input, output, session) {
 
   data <- reactiveVal(NULL)
   result_data <- reactiveVal(NULL)
+  result_data_raster <- reactiveVal(NULL)  # para guardar el raster
 
   observeEvent(input$file, {
     req(input$file)
-    df <- read_excel(input$file$datapath)
 
-      # Clean the data
-      df %<>%
-        mutate(Class = as.factor(Class))
-
-    data(df)
+    tryCatch({
+      df <- load_file(input$file)
+      data(df)
+      showNotification("✅ Archivo cargado correctamente", type = "message")
+    }, error = function(e) {
+      showNotification(paste("❌ Error leyendo el archivo:", e$message), type = "error")
+      data(NULL)
+    })
   })
+
 
   observeEvent(input$classify, {
     req(data())
-
     df <- data()
 
-    # Si no hay RT, estimarlo a partir de radiación solar
-    if (!input$has_mrt && "Solar_radiation" %in% names(df)) {
-      df %<>%
-        mutate(RT = ArchiData::MRT(T_a, GT, V)) %>%
-        mutate(UTCI = ArchiData::UTCI(T_a, RT, V, RH)) %>%
-        mutate(Clasificación.UTCI = UTCI2classification(UTCI))
+    # Convertir numéricas
+    num_vars <- c("Longitude","Latitude", "Air_temperature", "Relative_humidity", "Wind_speed", "Solar_radiation")
+    for (var in num_vars) {
+      if (var %in% names(df)) {
+        df[[var]] <- suppressWarnings(as.numeric(gsub(",", ".", df[[var]])))
+      }
     }
 
-    # Si no hay coordenadas, agregar columnas vacías
+    # Calcular UTCI y su clasificación
+    df <- calc_utci(df, input$utci_method)
+
+    # Si no hay coordenadas, rellenar con NA
     if (!input$has_geo) {
       df$Latitude <- NA
       df$Longitude <- NA
     }
 
-    # Clasificación OTC
-    df$OTC_Prediction <- MODEL_NAME %>% predict(df)
+    # Clasificación OTC con modelo cargado
+    df$OTC_Prediction <- predict(MODEL_NAME, df)
 
+    # Guardar resultados para tabla
     result_data(df)
 
-    # Actualiza el mapa
-    output$map <- renderLeaflet({
-      df <- result_data()
-      req(df)
 
-      # Ensure coordinates are present and not NA
-      if ("Latitude" %in% names(df) && "Longitude" %in% names(df) &&
-          any(!is.na(df$Latitude)) && any(!is.na(df$Longitude))) {
-
-        # Compute the color for each row using the palette
-        pal <- colorNumeric(
-          # palette = viridis::viridis(256, option = "B", direction = -1),
-          palette = heat.colors(256, rev = TRUE),
-          domain = df$Air_temperature
-        )
-
-        df %>%
-          leaflet() %>%
-            setView(lng = mean(df$Longitude), lat = mean(df$Latitude), zoom = 12.5) %>%
-
-            # addMapPane("baseMap", zIndex = 410) %>%  # Create a new map pane
-            addProviderTiles("CartoDB.Positron") %>%
-            addTiles() %>%
-
-            addCircleMarkers(
-              lng = ~Longitude,
-              lat = ~Latitude,
-              stroke = TRUE,
-              weight = 1,
-              color = "black",
-              # fillColor = ~viridis::viridis(nrow(df), option = "B")[rank(df$Air_temperature)],
-              fillColor = ~heat.colors(nrow(df), rev = TRUE)[rank(df$Air_temperature)],
-              radius = 5,
-              opacity = 1,
-              fillOpacity = 0.7,
-              label = ~sprintf("Air_temperature: %s", round(Air_temperature, 2))
-            ) %>%
-          addLegend(
-            position = "bottomright",
-            pal = pal,
-            values = df$Air_temperature,
-            title = "Air temperature (°C)",
-            opacity = 0.7
-          )
-
-      } else {
-        leaflet() %>%
-          addTiles() %>%
-          addPopups(lng = 0, lat = 0, popup = "No coordinates to display.")
-      }
-    })
-
-
+    # Renderizar mapa de variable elegida
+    # render_variable_map(output, result_data, var = input$var_map)
   })
 
-  output$results <- renderDT({
-    req(df)
+  output$map <- renderLeaflet({
     df <- result_data()
-    df %<>% mutate(across(recipes::all_numeric(), ~ round(., 3)))
-    datatable(df , options = list(scrollX = TRUE))
+    req(df)
+    req(input$var_map)  # variable a mapear
+
+    if (!input$has_geo || !("Latitude" %in% names(df)) || !("Longitude" %in% names(df))) {
+      return(leaflet() %>%
+               addTiles() %>%
+               addPopups(lng = 0, lat = 0, popup = "No coordinates to display."))
+    }
+
+    # Crear sf con coordenadas
+    sf_points <- sf::st_as_sf(df, coords = c("Longitude", "Latitude"), crs = 4326)
+
+    # Crear cuadrícula (malla regular) sobre el rango de las coordenadas
+    lon_range <- range(df$Longitude, na.rm = TRUE)
+    lat_range <- range(df$Latitude, na.rm = TRUE)
+    n <- 50  # resolución de la cuadrícula
+
+    amp <- 0.05
+    grid_df <- expand.grid(
+      Longitude = seq(lon_range[1]-amp, lon_range[2]+amp, length.out = n*5),
+      Latitude = seq(lat_range[1]-amp, lat_range[2]+amp, length.out = n*5)
+    )
+    sf_grid <- sf::st_as_sf(grid_df, coords = c("Longitude", "Latitude"), crs = 4326)
+
+    # Calcular el valor de la variable seleccionada para cada punto de la cuadrícula
+    # asignando el valor del punto más cercano (nearest neighbor)
+    coords_data <- sf::st_coordinates(sf_points)
+    coords_grid <- sf::st_coordinates(sf_grid)
+
+    # Encontrar el índice del vecino más cercano para cada punto de la cuadrícula
+    nn <- get.knnx(coords_data, coords_grid, k = 1)
+
+    # Extraer los valores de la variable seleccionada en df
+    var_values <- df[[input$var_map]]
+
+    # Asignar a cada punto de la cuadrícula el valor del vecino más cercano
+    grid_values <- var_values[nn$nn.index]
+
+    # Añadir los valores al sf_grid
+    sf_grid[[input$var_map]] <- grid_values
+
+    # Convertir a SpatialPointsDataFrame para rasterización
+    sp_grid <- as(sf_grid, "Spatial")
+
+    # Convertir sf_grid a SpatVector de terra
+    sv <- vect(sf_grid)
+
+    # Crear raster vacío con la extensión de los puntos y resolución n x n
+    r <- rast(ext(sv), ncol = n, nrow = n, crs = "EPSG:4326")
+
+    # Rasterizar usando el campo seleccionado
+    r <- rasterize(sv, r, field = input$var_map)
+
+    # Paleta de colores
+    valores <- values(r)
+    pal <- colorNumeric("viridis", domain = range(valores, na.rm = TRUE), , na.color = "#000000")
+
+
+    map_provider <- switch(input$basemap,
+                           "OSM" = providers$OpenStreetMap.Mapnik,
+                           "Satélite" = providers$Esri.WorldImagery,
+                           "Esri" = providers$Esri.WorldGrayCanvas,
+                           "Stadia" = providers$Stadia.AlidadeSmooth)
+
+    leaflet() %>%
+      addProviderTiles(map_provider) %>%
+      addRasterImage(r, colors = pal, opacity = 0.4) %>%
+      addLegend(pal = pal, values = values(r), title = input$var_map, position = "bottomright") %>%
+      setView(lng = mean(df$Longitude, na.rm = TRUE), lat = mean(df$Latitude, na.rm = TRUE), zoom = 13)
+  })
+
+
+
+  output$results <- renderDT({
+    df <- result_data()
+    req(df)
+    df %<>% mutate(across(where(is.numeric), ~ round(., 3)))
+    datatable(df, options = list(scrollX = TRUE))
   })
 
   output$download <- downloadHandler(
