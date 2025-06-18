@@ -1,0 +1,13 @@
+name: OTC_Advisor
+title: OTC_Advisor
+username: 0gduyi-jos0antonio-rodr0guez0gallego
+account: 0gduyi-jos0antonio-rodr0guez0gallego
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14957560
+bundleId: 10479798
+url: https://0gduyi-jos0antonio-rodr0guez0gallego.shinyapps.io/OTC_Advisor/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: pruebas|templates
