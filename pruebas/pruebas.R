@@ -1,44 +1,23 @@
-library(shiny)
-library(readxl)
-library(DT)
 
-ui <- fluidPage(
-  titlePanel("Verificador de carga de archivo"),
-  sidebarLayout(
-    sidebarPanel(
-      fileInput("file", "📤 Subir archivo (.csv o .xlsx)",
-                accept = c(".csv", ".xlsx"))
-    ),
-    mainPanel(
-      DTOutput("table")
-    )
-  )
-)
 
-server <- function(input, output, session) {
+## Pasar a Shapefile
 
-  data <- reactive({
-    req(input$file)
+# Cargar paquetes necesarios
+library(sf)
+library(dplyr)
+library(terra)
 
-    ext <- tools::file_ext(input$file$name)
+# Leer como tabla
+df <- read.csv2("OTC_data.csv", stringsAsFactors = FALSE, sep = ";")
 
-    tryCatch({
-      df <- switch(ext,
-                   csv = read.csv(input$file$datapath, stringsAsFactors = FALSE),
-                   xlsx = read_excel(input$file$datapath),
-                   stop("Formato de archivo no soportado.")
-      )
-      return(df)
-    }, error = function(e) {
-      showNotification(paste("Error leyendo el archivo:", e$message), type = "error")
-      return(NULL)
-    })
-  })
+# Convertir a objeto espacial sf
+puntos_sf <- st_as_sf(df, coords = c("Longitude", "Latitude"), crs = 4326)
 
-  output$table <- renderDT({
-    req(data())
-    datatable(data(), options = list(pageLength = 10))
-  })
-}
+# Exportar como shapefile (se crea un conjunto de archivos .shp, .dbf, etc.)
+st_write(puntos_sf, "OTC_classification.shp", delete_dsn = TRUE)
 
-shinyApp(ui, server)
+
+temp_zip <- tempfile(fileext = ".zip")
+downloadFormats(df, "shp", temp_zip)
+browseURL(temp_zip)  # Debería abrir el ZIP generado
+

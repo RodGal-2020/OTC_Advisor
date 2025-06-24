@@ -8,14 +8,18 @@ library(dplyr)
 library(terra)
 library(gstat)
 library(FNN)
+library(viridis)
 
 # Cargar tu modelo personalizado
 load(here("models", "MODEL_NAME.RData"))  # Asegúrate de que esto carga un objeto llamado MODEL_NAME
 
-source("read_files/load_files.R")
+source("read_files/read_files.R")
+source("read_files/download_files.R")
 source("functions/calculate_mrt.R")
 source("functions/calculate_utci.R")
-source("functions/map_module.R")
+source("functions/raster_map.R")
+source("models/predict_function.R")
+# source("functions/map_module.R")
 
 
 function(input, output, session) {
@@ -54,13 +58,20 @@ function(input, output, session) {
     df <- calc_utci(df, input$utci_method)
 
     # Si no hay coordenadas, rellenar con NA
-    if (!input$has_geo) {
+    if (!("Latitude" %in% names(df))) {
       df$Latitude <- NA
+    }
+    if (!("Longitude" %in% names(df))) {
       df$Longitude <- NA
     }
 
     # Clasificación OTC con modelo cargado
-    df$OTC_Prediction <- predict(MODEL_NAME, df)
+    if (!is.null(input$model) && input$model != "") {
+      df$OTC_Prediction <- predict_function(input$model, df)
+    }
+
+    df <- df[c("Longitude", "Latitude", setdiff(names(df), c("Longitude", "Latitude")))]
+
 
     # Guardar resultados para tabla
     result_data(df)
@@ -72,75 +83,14 @@ function(input, output, session) {
 
   output$map <- renderLeaflet({
     df <- result_data()
-    req(df)
-    req(input$var_map)  # variable a mapear
-
-    if (!input$has_geo || !("Latitude" %in% names(df)) || !("Longitude" %in% names(df))) {
+    if (!anyNA(df[c("Longitude", "Latitude")])) {
+      raster_map(df, input$var_map, input$basemap, input$map_opacity)
+    }
+    else {
       return(leaflet() %>%
                addTiles() %>%
                addPopups(lng = 0, lat = 0, popup = "No coordinates to display."))
     }
-
-    # Crear sf con coordenadas
-    sf_points <- sf::st_as_sf(df, coords = c("Longitude", "Latitude"), crs = 4326)
-
-    # Crear cuadrícula (malla regular) sobre el rango de las coordenadas
-    lon_range <- range(df$Longitude, na.rm = TRUE)
-    lat_range <- range(df$Latitude, na.rm = TRUE)
-    n <- 50  # resolución de la cuadrícula
-
-    amp <- 0.05
-    grid_df <- expand.grid(
-      Longitude = seq(lon_range[1]-amp, lon_range[2]+amp, length.out = n*5),
-      Latitude = seq(lat_range[1]-amp, lat_range[2]+amp, length.out = n*5)
-    )
-    sf_grid <- sf::st_as_sf(grid_df, coords = c("Longitude", "Latitude"), crs = 4326)
-
-    # Calcular el valor de la variable seleccionada para cada punto de la cuadrícula
-    # asignando el valor del punto más cercano (nearest neighbor)
-    coords_data <- sf::st_coordinates(sf_points)
-    coords_grid <- sf::st_coordinates(sf_grid)
-
-    # Encontrar el índice del vecino más cercano para cada punto de la cuadrícula
-    nn <- get.knnx(coords_data, coords_grid, k = 1)
-
-    # Extraer los valores de la variable seleccionada en df
-    var_values <- df[[input$var_map]]
-
-    # Asignar a cada punto de la cuadrícula el valor del vecino más cercano
-    grid_values <- var_values[nn$nn.index]
-
-    # Añadir los valores al sf_grid
-    sf_grid[[input$var_map]] <- grid_values
-
-    # Convertir a SpatialPointsDataFrame para rasterización
-    sp_grid <- as(sf_grid, "Spatial")
-
-    # Convertir sf_grid a SpatVector de terra
-    sv <- vect(sf_grid)
-
-    # Crear raster vacío con la extensión de los puntos y resolución n x n
-    r <- rast(ext(sv), ncol = n, nrow = n, crs = "EPSG:4326")
-
-    # Rasterizar usando el campo seleccionado
-    r <- rasterize(sv, r, field = input$var_map)
-
-    # Paleta de colores
-    valores <- values(r)
-    pal <- colorNumeric("viridis", domain = range(valores, na.rm = TRUE), , na.color = "#000000")
-
-
-    map_provider <- switch(input$basemap,
-                           "OSM" = providers$OpenStreetMap.Mapnik,
-                           "Satélite" = providers$Esri.WorldImagery,
-                           "Esri" = providers$Esri.WorldGrayCanvas,
-                           "Stadia" = providers$Stadia.AlidadeSmooth)
-
-    leaflet() %>%
-      addProviderTiles(map_provider) %>%
-      addRasterImage(r, colors = pal, opacity = 0.4) %>%
-      addLegend(pal = pal, values = values(r), title = input$var_map, position = "bottomright") %>%
-      setView(lng = mean(df$Longitude, na.rm = TRUE), lat = mean(df$Latitude, na.rm = TRUE), zoom = 13)
   })
 
 
@@ -152,12 +102,41 @@ function(input, output, session) {
     datatable(df, options = list(scrollX = TRUE))
   })
 
+
+  output$var_map_ui <- renderUI({
+    df <- result_data()
+    req(df)
+
+    # Detectar columnas numéricas
+    num_vars <- names(df)[sapply(df, is.numeric)]
+
+    # Detectar columnas categóricas: factor o character
+    cat_vars <- names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
+
+    # Excluir coordenadas
+    excluir <- c("Latitude", "Longitude")
+    todas_vars <- setdiff(unique(c(num_vars, cat_vars)), excluir)
+
+    selectInput(
+      "var_map",
+      "Variable a representar:",
+      choices  = todas_vars,
+      selected = todas_vars[1] %||% NULL  # usa la primera si hay
+    )
+  })
+
+
+
   output$download <- downloadHandler(
     filename = function() {
-      paste("otc_results_", Sys.Date(), ".xlsx", sep = "")
+      paste("otc_results_", Sys.Date(), ".", input$formats, sep = "")
     },
     content = function(file) {
-      write.xlsx(result_data(), file)
+      df <- result_data()
+      # if ("OTC_Prediction" %in% colnames(df)) {
+      #   df$OTC_Prediction <- df$OTC_Prediction$.pred_class
+      # }
+      downloadFormats(df, input$formats, file)
     }
   )
 
@@ -165,9 +144,7 @@ function(input, output, session) {
     req(result_data())
     total_rows <- nrow(result_data())
     if (total_rows > 0) {
-      p(paste("Data contains", total_rows, "records and",
-              ifelse(input$has_geo, "includes", "does not include"),
-              "geographic coordinates."))
+      p(paste("Data contains", total_rows, "records"))
     } else {
       p("No data to display.")
     }

@@ -23,20 +23,21 @@ OTC_Advisor es una aplicación interactiva desarrollada en R Shiny destinada a e
 
 ### ✅ Objetivos del desarrollo, ordenados por prioridad y dificultad
 
-1. Carga de datos desde archivos Excel (.xlsx)
+✅ 1. Carga de datos desde archivos Excel (.xlsx)
 Permitir al usuario subir datasets locales con variables climáticas estándar.
 
 2. Clasificación del confort térmico con un modelo base
 Implementar un modelo predictivo simple (ej. árbol de decisión entrenado previamente) para clasificar el confort térmico.
 
-3. Visualización en mapa con leaflet
+✅ 3. Visualización en mapa con leaflet
 Mostrar los resultados del modelo como puntos geolocalizados sobre un mapa interactivo.
 
 4. Opciones básicas de visualización
 Añadir controles para ajustar propiedades del mapa como transparencia del fondo, color de los puntos o ancho de la rejilla.
 
-5. Exportación de resultados en diferentes formatos
+✅ 5. Exportación de resultados en diferentes formatos
 Permitir la descarga de datos clasificados en varios formatos: Excel, CSV, GeoJSON.
+    - **POSIBILIDAD DE DESCARGA EN EXCEL, CSV, TXT Y GEOPACKAGE**
 
 6. Implementación de diferentes modelos de predicción
 Permitir al usuario elegir entre distintos algoritmos de clasificación (e.g., Random Forest, SVM, regresión logística, modelos basados en MRT, etc.).
