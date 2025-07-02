@@ -9,6 +9,10 @@ header <- dashboardHeader(title = "OTC Classifier")
 sidebar <- dashboardSidebar(
   fileInput("file", "📤 Upload Excel, CSV or ZIP File", accept = c(".xlsx", ".csv", ".zip", ".gpkg")),
 
+  selectInput("gender", "Select your gender",
+              choices = c("Male", "Female")),
+  selectInput("age", "Select your age",
+              choices = c("<12","13-17", "18-24", "25-34", "35-44", "45-54", "55-64", ">65")),
   radioButtons("utci_method", "🌡️ UTCI Source:",
                choices = c(
                  "Includes UTCI column" = "utci",
@@ -16,12 +20,18 @@ sidebar <- dashboardSidebar(
                  "Calculate from Globe Temperature" = "tg",
                  "Calculate from Solar Radiation" = "solar"
                ),
-               selected = "utci"),
+               selected = "tg"),
   br(),
+  radioButtons("class", "Select classification:",
+               choices = c(
+                 "Binary (Comfort/Discomfort)" = "binary",
+                 "Multiclass" = "multiclass"
+               ),
+               selected = "binary"),
   radioButtons("model", "Select model:",
                choices = c(
-                 "Logistic regression" = "multinom_reg",
-                 "Naive-Bayes" = "NBD"
+                 "Naive-Bayes" = "NBD",
+                 "XGBoost" = "XGB"
                ),
                selected = "xlsx"),
   actionButton("classify", "⚙️ Classify OTC", class = "btn-primary"),

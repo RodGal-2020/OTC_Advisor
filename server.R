@@ -10,9 +10,6 @@ library(gstat)
 library(FNN)
 library(viridis)
 
-# Cargar tu modelo personalizado
-load(here("models", "MODEL_NAME.RData"))  # Asegúrate de que esto carga un objeto llamado MODEL_NAME
-
 source("read_files/read_files.R")
 source("read_files/download_files.R")
 source("functions/calculate_mrt.R")
@@ -67,7 +64,11 @@ function(input, output, session) {
 
     # Clasificación OTC con modelo cargado
     if (!is.null(input$model) && input$model != "") {
-      df$OTC_Prediction <- predict_function(input$model, df)
+      if(input$class == "binary") {
+        df$OTC_Prediction <- predict_function(input$model, df, input$gender, input$age)
+      } else if (input$class == "multiclass") {
+        df$OTC_Prediction <- predict_function_multi(input$model, df, input$gender, input$age)
+      }
     }
 
     df <- df[c("Longitude", "Latitude", setdiff(names(df), c("Longitude", "Latitude")))]
@@ -121,7 +122,7 @@ function(input, output, session) {
       "var_map",
       "Variable a representar:",
       choices  = todas_vars,
-      selected = todas_vars[1] %||% NULL  # usa la primera si hay
+      selected = "OTC_Prediction" %||% NULL  # usa la primera si hay
     )
   })
 

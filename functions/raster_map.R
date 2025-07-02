@@ -54,19 +54,50 @@ raster_map <- function(df, var_map, basemap = "Stadia", map_opacity = 0.8) {
       addLegend(pal = pal, values = valores, title = var_map, position = "bottomright") %>%
       setView(lng = mean(df$Longitude, na.rm = TRUE), lat = mean(df$Latitude, na.rm = TRUE), zoom = 14)
   } else {
-    sf_grid[[var_map]] <- factor(sf_grid[[var_map]])
+    # Niveles y colores fijos
+    levels <- c("Very cold", "Cold", "Neither cool nor warm", "Warm", "Very hot")
+    cols <- c("#2c7bb6", "#abd9e9", "#ffffbf", "#fdae61", "#d7191c")
+
+    # Forzar variable a factor con niveles fijos
+    sf_grid[[var_map]] <- factor(sf_grid[[var_map]], levels = levels)
+
+    # Vector espacial
     sv <- terra::vect(sf_grid)
+
+    # Rasterización: esto guarda códigos numéricos
     r <- terra::rasterize(sv, r, field = var_map)
-    cats <- terra::cats(r)[[1]]  # Data frame con columnas: ID y label o category
-    codes <- cats$value             # por ejemplo: 0, 1, 2...
-    labels <- cats$category          # por ejemplo: "Cold", "Hot", etc.
-    pal <- colorFactor(viridis::viridis(length(codes)), domain = codes)
+
+    # Obtener tabla de categorías del raster
+    cats <- terra::cats(r)[[1]]  # Tiene columnas: value (códigos), category (etiquetas)
+
+    # Extraer códigos y etiquetas en orden correcto
+    codes <- cats$value
+    labels <- cats$category
+
+    # Paleta basada en los códigos (números), pero con colores fijos
+    pal <- colorFactor(
+      palette = cols,
+      domain = codes,     # NOTA: domain son los códigos (1, 2, 3, ...)
+      na.color = "#000000"
+    )
+
+    # Mapa leaflet con leyenda personalizada
     leaflet() %>%
       addProviderTiles(map_provider) %>%
       addRasterImage(r, colors = pal, opacity = map_opacity, project = FALSE) %>%
-      addLegend(colors = pal(codes), labels = labels, title = var_map, position = "bottomright") %>%
-      setView(lng = mean(df$Longitude, na.rm = TRUE), lat = mean(df$Latitude, na.rm = TRUE), zoom = 14)
+      addLegend(
+        colors = cols,
+        labels = levels,  # Orden definido arriba, igual que colores
+        title = var_map,
+        position = "bottomright"
+      ) %>%
+      setView(
+        lng = mean(df$Longitude, na.rm = TRUE),
+        lat = mean(df$Latitude, na.rm = TRUE),
+        zoom = 14
+      )
   }
+
 }
 
 
