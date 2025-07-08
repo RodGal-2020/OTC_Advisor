@@ -12,11 +12,12 @@ library(viridis)
 
 source("read_files/read_files.R")
 source("read_files/download_files.R")
-source("functions/calculate_mrt.R")
-source("functions/calculate_utci.R")
-source("functions/raster_map.R")
+source("utils/calculate_mrt.R")
+source("utils/calculate_utci.R")
+source("utils/status_summary.R")
+source("utils/raster_map2.R")
 source("models/predict_function.R")
-# source("functions/map_module.R")
+# source("utils/map_module.R")
 
 
 function(input, output, session) {
@@ -31,9 +32,9 @@ function(input, output, session) {
     tryCatch({
       df <- load_file(input$file)
       data(df)
-      showNotification("✅ Archivo cargado correctamente", type = "message")
+      showNotification("✅ File uploaded successfully", type = "message")
     }, error = function(e) {
-      showNotification(paste("❌ Error leyendo el archivo:", e$message), type = "error")
+      showNotification(paste("❌ Error reading file:", e$message), type = "error")
       data(NULL)
     })
   })
@@ -65,9 +66,11 @@ function(input, output, session) {
     # Clasificación OTC con modelo cargado
     if (!is.null(input$model) && input$model != "") {
       if(input$class == "binary") {
-        df$OTC_Prediction <- predict_function(input$model, df, input$gender, input$age)
+        df$OTC_Probability <- predict_function(input$model, df, input$gender, input$age)
       } else if (input$class == "multiclass") {
         df$OTC_Prediction <- predict_function_multi(input$model, df, input$gender, input$age)
+        niveles_otc <- c("Very cold", "Cold", "Neither cool nor warm", "Warm", "Very hot")
+        df$OTC_Prediction <- factor(df$OTC_Prediction, levels = niveles_otc)
       }
     }
 
@@ -82,19 +85,33 @@ function(input, output, session) {
     # render_variable_map(output, result_data, var = input$var_map)
   })
 
-  output$map <- renderLeaflet({
+  map_leaflet <- reactive({
     df <- result_data()
     if (!anyNA(df[c("Longitude", "Latitude")])) {
       raster_map(df, input$var_map, input$basemap, input$map_opacity)
-    }
-    else {
-      return(leaflet() %>%
-               addTiles() %>%
-               addPopups(lng = 0, lat = 0, popup = "No coordinates to display."))
+    } else {
+      leaflet() %>%
+        addTiles() %>%
+        addPopups(lng = 0, lat = 0, popup = "No coordinates to display.")
     }
   })
 
+  output$map <- renderLeaflet({
+    map_leaflet()
+  })
 
+  output$download_map <- downloadHandler(
+    filename = function() {
+      paste0("map_", Sys.Date(), ".html")
+    },
+    content = function(file) {
+      htmlwidgets::saveWidget(
+        widget = map_leaflet(),
+        file = file,
+        selfcontained = TRUE
+      )
+    }
+  )
 
   output$results <- renderDT({
     df <- result_data()
@@ -114,18 +131,33 @@ function(input, output, session) {
     # Detectar columnas categóricas: factor o character
     cat_vars <- names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
 
-    # Excluir coordenadas
-    excluir <- c("Latitude", "Longitude")
-    todas_vars <- setdiff(unique(c(num_vars, cat_vars)), excluir)
+    todas_vars <- c(num_vars, cat_vars)  # ordenar alfabéticamente
+    # Vector de opciones filtradas
+    opciones <- intersect(todas_vars, c("Air_temperature", "Globe_temperature", "Relative_humidity", "Wind_speed", "Radiant_temperature", "UTCI", "Classification.UTCI", "OTC_Probability", "OTC_Prediction"))
 
+    # Buscar la primera que empiece por "OTC"
+    seleccion_otc <- grep("^OTC", opciones, value = TRUE)[1]
+
+    # Construcción del selectInput
     selectInput(
       "var_map",
-      "Variable a representar:",
-      choices  = todas_vars,
-      selected = "OTC_Prediction" %||% NULL  # usa la primera si hay
+      "Variable to be represented:",
+      choices  = opciones,
+      selected = seleccion_otc %||% opciones[1]  # si no hay ninguna "OTC", usa la primera
     )
   })
 
+  observeEvent(input$more_info_model, {
+    showModal(modalDialog(
+      title = "Model information",
+      HTML("
+      <b>Naive-Bayes:</b> A simple probabilistic model based on Bayes’ theorem. It assumes independence between predictors and works well with small datasets.<br><br>
+      <b>XGBoost:</b> An advanced ensemble learning algorithm based on gradient boosting. It is highly accurate and efficient, especially for structured data.<br>
+    "),
+      easyClose = TRUE,
+      footer = modalButton("Close")
+    ))
+  })
 
 
   output$download <- downloadHandler(
@@ -134,20 +166,13 @@ function(input, output, session) {
     },
     content = function(file) {
       df <- result_data()
-      # if ("OTC_Prediction" %in% colnames(df)) {
-      #   df$OTC_Prediction <- df$OTC_Prediction$.pred_class
-      # }
       downloadFormats(df, input$formats, file)
     }
   )
 
   output$status <- renderUI({
     req(result_data())
-    total_rows <- nrow(result_data())
-    if (total_rows > 0) {
-      p(paste("Data contains", total_rows, "records"))
-    } else {
-      p("No data to display.")
-    }
+    status_summary(result_data())
   })
+
 }

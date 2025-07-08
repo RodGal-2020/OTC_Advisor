@@ -7,7 +7,7 @@ library(leaflet)
 header <- dashboardHeader(title = "OTC Classifier")
 
 sidebar <- dashboardSidebar(
-  fileInput("file", "📤 Upload Excel, CSV or ZIP File", accept = c(".xlsx", ".csv", ".zip", ".gpkg")),
+  fileInput("file", "📤 Upload Excel, CSV, ZIP File with Shapefiles or Geopackage", accept = c(".xlsx", ".csv", ".zip", ".gpkg")),
 
   selectInput("gender", "Select your gender",
               choices = c("Male", "Female")),
@@ -22,18 +22,23 @@ sidebar <- dashboardSidebar(
                ),
                selected = "tg"),
   br(),
-  radioButtons("class", "Select classification:",
+  radioButtons("class",
+               label = tags$span("Select classification:",
+                                 title = "Choose between the predicted comfort probability (Binary) or the predicted comfort class (Multiclass)."),
                choices = c(
-                 "Binary (Comfort/Discomfort)" = "binary",
+                 "Binary" = "binary",
                  "Multiclass" = "multiclass"
                ),
                selected = "binary"),
-  radioButtons("model", "Select model:",
+  radioButtons("model", label = tags$span("Select model:",
+                                          title = "Choose the algorithm used for prediction."),
                choices = c(
                  "Naive-Bayes" = "NBD",
                  "XGBoost" = "XGB"
                ),
-               selected = "xlsx"),
+               selected = "XGB"),
+  actionLink("more_info_model", "More information", icon = icon("info-circle")),
+  br(), br(),
   actionButton("classify", "⚙️ Classify OTC", class = "btn-primary"),
   br(), br(),
 
@@ -69,28 +74,33 @@ body <- dashboardBody(
                #             choices = c("Air_temperature", "Relative_humidity", "Wind_speed", "UTCI"), selected = "Air_temperature"),
                uiOutput("var_map_ui"),
 
-               selectInput("basemap", "Selecciona mapa base",
+               selectInput("basemap", "Select base map",
                            choices = c("Stadia", "Satélite", "Esri", "OSM")),
 
-               sliderInput("map_opacity", "Opacidad del mapa:", min = 0, max = 1, value = 0.5, step = 0.1),
+               sliderInput("map_opacity", "Map opacity:", min = 0, max = 1, value = 0.5, step = 0.1),
            ),
 
-           box(title = "📌 Status", width = NULL, status = "warning", solidHeader = TRUE,
+           box(title = "📌 Status", width = NULL, status = "warning", solidHeader = TRUE, collapsible = TRUE,
                uiOutput("status")
            ),
 
-           box(title = "⬇️ Download Results", width = NULL, status = "primary", solidHeader = TRUE,
+           box(title = "⬇️ Download Results", width = NULL, status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE,
                radioButtons("formats", "Download Formats:",
                             choices = c(
                               "CSV" = "csv",
                               "Excel" = "xlsx",
-                              "Texto plano (txt)" = "txt",
+                              "Plain text (txt)" = "txt",
                               # "Shapefiles" = "zip",
                               "Geopackage" = "gpkg"
                             ),
                             selected = "xlsx"),
                downloadButton("download", "Download" ),
+
            ),
+
+           box(title = "🌍 Download Map", width = NULL, status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE,
+               downloadButton("download_map", "Download map (HTML)")
+           )
 
     )
 

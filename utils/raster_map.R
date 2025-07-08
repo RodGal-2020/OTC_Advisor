@@ -1,5 +1,4 @@
 
-
 # raster_map.R
 library(leaflet)
 library(sf)
@@ -18,7 +17,7 @@ raster_map <- function(df, var_map, basemap = "Stadia", map_opacity = 0.8) {
   lon_range <- range(df$Longitude, na.rm = TRUE)
   lat_range <- range(df$Latitude, na.rm = TRUE)
   n <- 50
-  amp <- 0.00
+  amp <- 0.005
   grid_df <- expand.grid(
     Longitude = seq(lon_range[1] - amp, lon_range[2] + amp, length.out = n * 5),
     Latitude = seq(lat_range[1] - amp, lat_range[2] + amp, length.out = n * 5)
@@ -37,7 +36,11 @@ raster_map <- function(df, var_map, basemap = "Stadia", map_opacity = 0.8) {
   sv <- vect(sf_grid)
   r <- rast(ext(sv), ncol = n, nrow = n, crs = "EPSG:4326")
   r <- rasterize(sv, r, field = var_map)
+  cats <- terra::cats(r)[[1]]  # Tiene columnas: value (códigos), category (etiquetas)
 
+  # Extraer códigos y etiquetas en orden correcto
+  codes <- cats$value
+  labels <- cats$category
   map_provider <- switch(basemap,
                          "OSM" = providers$OpenStreetMap.Mapnik,
                          "Satélite" = providers$Esri.WorldImagery,
@@ -58,27 +61,16 @@ raster_map <- function(df, var_map, basemap = "Stadia", map_opacity = 0.8) {
     levels <- c("Very cold", "Cold", "Neither cool nor warm", "Warm", "Very hot")
     cols <- c("#2c7bb6", "#abd9e9", "#ffffbf", "#fdae61", "#d7191c")
 
-    # Forzar variable a factor con niveles fijos
-    sf_grid[[var_map]] <- factor(sf_grid[[var_map]], levels = levels)
-
-    # Vector espacial
-    sv <- terra::vect(sf_grid)
-
-    # Rasterización: esto guarda códigos numéricos
-    r <- terra::rasterize(sv, r, field = var_map)
-
-    # Obtener tabla de categorías del raster
-    cats <- terra::cats(r)[[1]]  # Tiene columnas: value (códigos), category (etiquetas)
-
-    # Extraer códigos y etiquetas en orden correcto
-    codes <- cats$value
-    labels <- cats$category
-
     # Paleta basada en los códigos (números), pero con colores fijos
     pal <- colorFactor(
       palette = cols,
       domain = codes,     # NOTA: domain son los códigos (1, 2, 3, ...)
       na.color = "#000000"
+    )
+
+    pal_points <- colorFactor(
+      palette = cols,
+      domain = levels  # etiquetas categóricas
     )
 
     # Mapa leaflet con leyenda personalizada
@@ -90,6 +82,17 @@ raster_map <- function(df, var_map, basemap = "Stadia", map_opacity = 0.8) {
         labels = levels,  # Orden definido arriba, igual que colores
         title = var_map,
         position = "bottomright"
+      ) %>%
+      addCircleMarkers(
+        data = df,
+        lng = ~Longitude,
+        lat = ~Latitude,
+        color = ~pal_points(Subjective_thermal_sensation),
+        radius = 5,
+        fillOpacity = 0.8,
+        stroke = FALSE,
+        label = ~as.character(Subjective_thermal_sensation),
+        labelOptions = labelOptions(direction = "auto")
       ) %>%
       setView(
         lng = mean(df$Longitude, na.rm = TRUE),
