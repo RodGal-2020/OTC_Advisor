@@ -7,36 +7,40 @@ library(terra)
 library(leaflet.providers)
 source("utils/palette_colors.R")
 
-raster_map <- function(df, var_map, basemap = "Stadia", map_opacity = 0.8) {
+raster_map <- function(df, var_map, basemap = "Stadia", map_opacity = 0.8, n = 50, buffer_dist = 200) {
   req(df)
   req(var_map)
 
   # Crear sf con coordenadas
   sf_points <- sf::st_as_sf(df, coords = c("Longitude", "Latitude"), crs = 4326)
 
-  # Crear cuadrícula
-  lon_range <- range(df$Longitude, na.rm = TRUE)
-  lat_range <- range(df$Latitude, na.rm = TRUE)
-  n <- 50
-  amp <- 0.005
+  # Crear buffer alrededor de todos los puntos
+  sf_points_proj <- sf::st_transform(sf_points, 3857)  # Proyección métrica para usar metros
+  buffer_union <- sf::st_union(sf::st_buffer(sf_points_proj, dist = buffer_dist))
+  buffer_union <- sf::st_transform(buffer_union, 4326)  # Volver a latlon para leaflet/terra
+
+  # Crear grid SOLO dentro del buffer
+  bbox <- sf::st_bbox(buffer_union)
   grid_df <- expand.grid(
-    Longitude = seq(lon_range[1] - amp, lon_range[2] + amp, length.out = n * 5),
-    Latitude = seq(lat_range[1] - amp, lat_range[2] + amp, length.out = n * 5)
+    Longitude = seq(bbox$xmin, bbox$xmax, length.out = n * 5),
+    Latitude = seq(bbox$ymin, bbox$ymax, length.out = n * 5)
   )
   sf_grid <- sf::st_as_sf(grid_df, coords = c("Longitude", "Latitude"), crs = 4326)
+  sf_grid <- sf_grid[sf::st_within(sf_grid, buffer_union, sparse = FALSE), ]
 
   # Vecinos más cercanos
   coords_data <- sf::st_coordinates(sf_points)
   coords_grid <- sf::st_coordinates(sf_grid)
-  nn <- get.knnx(coords_data, coords_grid, k = 1)
+  nn <- FNN::get.knnx(coords_data, coords_grid, k = 1)
   var_values <- df[[var_map]]
   grid_values <- var_values[nn$nn.index]
   sf_grid[[var_map]] <- grid_values
 
   # Rasterización con terra
-  sv <- vect(sf_grid)
-  r <- rast(ext(sv), ncol = n, nrow = n, crs = "EPSG:4326")
-  r <- rasterize(sv, r, field = var_map)
+  sv <- terra::vect(sf_grid)
+  r <- terra::rast(ext(sv), ncol = n, nrow = n, crs = "EPSG:4326")
+  r <- terra::rasterize(sv, r, field = var_map)
+
   cats <- terra::cats(r)[[1]]  # Tiene columnas: value (códigos), category (etiquetas)
 
   # Extraer códigos y etiquetas en orden correcto

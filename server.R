@@ -66,7 +66,7 @@ function(input, output, session) {
     # Clasificación OTC con modelo cargado
     if (!is.null(input$model) && input$model != "") {
       if(input$class == "binary") {
-        df$OTC_Probability <- predict_function(input$model, df, input$gender, input$age)
+        df$OTC_Probability <- predict_function(input$model, df, input$gender, input$age)*100
       } else if (input$class == "multiclass") {
         df$OTC_Prediction <- predict_function_multi(input$model, df, input$gender, input$age)
         niveles_otc <- c("Very cold", "Cold", "Neither cool nor warm", "Warm", "Very hot")
@@ -88,7 +88,7 @@ function(input, output, session) {
   map_leaflet <- reactive({
     df <- result_data()
     if (!anyNA(df[c("Longitude", "Latitude")])) {
-      raster_map(df, input$var_map, input$basemap, input$map_opacity)
+      raster_map(df, input$var_map, input$basemap, input$map_opacity, n = input$n_raster, buffer_dist = input$buffer_radius)
     } else {
       leaflet() %>%
         addTiles() %>%

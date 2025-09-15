@@ -92,4 +92,4 @@ tabla_xgb_spec <- t(tabla_xgb_spec[2,])
 
 ## save model
 XGB_multiclass <- final_fit %>% extract_workflow()
-save(XGB_multiclass, file = "models/XGB_multiclass.RData")
+# save(XGB_multiclass, file = "models/XGB_multiclass.RData")

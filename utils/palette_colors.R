@@ -13,7 +13,7 @@ get_var_type <- function(var_name) {
     return("humidity")
   } else if (var_name %in% c("Wind_speed")) {
     return("wind")
-  } else if (var_name %in% c("ClassificationUTCI", "Subjective_thermal_sensation", "OTC_Prediction")) {
+  } else if (var_name %in% c("ClassificationUTCI", "df[[var_map]]", "OTC_Prediction")) {
     return("categorical")
   } else if (var_name %in% c("OTC_Probability")) {
     return("otc_probs")
@@ -42,7 +42,7 @@ get_color_palette <- function(var_name, var_values, codigo) {
     pal <- colorNumeric(
       palette = temp_palette(100),  # 100 colores interpolados
       domain = c(10, 50),
-      na.color = "#000000"
+      na.color = "transparent"
     )
 
   } else if (type == "radiation") {
@@ -51,21 +51,21 @@ get_color_palette <- function(var_name, var_values, codigo) {
     pal <- colorNumeric(
       palette = temp_palette(100),  # 100 colores interpolados
       domain = c(0, 80),
-      na.color = "#000000"
+      na.color = "transparent"
     )
 
   } else if (type == "humidity") {
     pal <- colorNumeric(
       palette = "Blues",
       domain = range(var_values, na.rm = TRUE),
-      na.color = "#000000"
+      na.color = "transparent"
     )
 
   } else if (type == "wind") {
     pal <- colorNumeric(
       palette = "Greens",
       domain = range(var_values, na.rm = TRUE),
-      na.color = "#000000"
+      na.color = "transparent"
     )
 
   } else if (type == "categorical") {
@@ -75,14 +75,14 @@ get_color_palette <- function(var_name, var_values, codigo) {
     pal <- colorFactor(
       palette = c("#2c7bb6", "#abd9e9", "#ffffbf", "#fdae61", "#d7191c"),
       domain = codigo,
-      na.color = "#000000"
+      na.color = "transparent"
     )
 
   } else if (type == "otc_probs") {
     pal <- colorNumeric(
-      palette = "Greens",
-      domain = c(0,1),
-      na.color = "#000000"
+      palette = "OrRd",
+      domain = c(0,100),
+      na.color = "transparent"
     )
 
   } else if (type == "utci") {
@@ -92,7 +92,7 @@ get_color_palette <- function(var_name, var_values, codigo) {
     pal <- colorFactor(
       palette = c("#313695","#4575B4","#74ADD1","#ABD9E9","#E0F3F8","#FFFFBF","#FEE090","#FDAE61","#F46D43", "#D73027", "#A50026"),
       domain = codigo,
-      na.color = "#000000"
+      na.color = "transparent"
     )
 
   } else {
@@ -100,20 +100,35 @@ get_color_palette <- function(var_name, var_values, codigo) {
     pal <- colorNumeric(
       palette = viridis(7, alpha = alpha),
       domain = range(var_values, na.rm = TRUE),
-      na.color = "#000000"
+      na.color = "transparent"
     )
   }
 
   return(pal)
 }
 
+var_labels <- list(
+  Air_temperature         = "Air temperature (°C)",
+  Globe_temperature       = "Globe temperature (°C)",
+  Radiant_temperature     = "Radiant temperature (°C)",
+  Relative_humidity       = "Relative humidity (%)",
+  Wind_speed              = "Wind speed (m/s)",
+  UTCI                    = "UTCI (°C)",
+  Classification.UTCI     = "Classification UTCI",
+  OTC_Probability         = "OTC Probability (%)",
+  OTC_Prediction          = "OTC Prediction"
+)
+
+
+
+get_var_label <- function(var_map) {
+  var_labels[[var_map]] %||% var_map  # si no está en la lista, devuelve el nombre original
+}
 
 
 draw_leaflet_map <- function(r, var_map, var_values, df, codigo, map_provider, map_opacity = 0.8) {
+
   pal <- get_color_palette(var_map, var_values, codigo)
-  leaflet_base <- leaflet() %>%
-    addProviderTiles(map_provider) %>%
-    addRasterImage(r, colors = pal, opacity = map_opacity, project = FALSE)
 
   # Leyenda: adaptativa según tipo de paleta
   if (var_map == "Classification.UTCI") {
@@ -121,14 +136,25 @@ draw_leaflet_map <- function(r, var_map, var_values, df, codigo, map_provider, m
 
     codes <- cats$value
     domain_vals <- cats$category
+    equivalencias <- data.frame(
+      code = codes,
+      label = domain_vals,
+      stringsAsFactors = FALSE
+    )
 
     colores <- c("#313695","#4575B4","#74ADD1","#ABD9E9","#E0F3F8","#FFFFBF","#FEE090","#FDAE61","#F46D43", "#D73027", "#A50026")
 
-    leaflet_base <- leaflet_base %>%
+    df$cod <- equivalencias$code[match(df[[var_map]], equivalencias$label)]
+
+    df$color_points <- pal(df$cod)
+
+    leaflet_base <- leaflet() %>%
+      addProviderTiles(map_provider) %>%
+      addRasterImage(r, colors = pal, opacity = map_opacity, project = FALSE) %>%
       addLegend(
         colors = colores,
         labels = domain_vals,
-        title = var_map,
+        title = get_var_label(var_map),
         position = "bottomright"
       )
 
@@ -137,30 +163,71 @@ draw_leaflet_map <- function(r, var_map, var_values, df, codigo, map_provider, m
 
     codes <- cats$value
     domain_vals <- cats$category
+    equivalencias <- data.frame(
+      code = codes,
+      label = domain_vals,
+      stringsAsFactors = FALSE
+    )
 
     colores <- c("#2c7bb6", "#abd9e9", "#ffffbf", "#fdae61", "#d7191c")
 
-    leaflet_base <- leaflet_base %>%
+    df$cod <- equivalencias$code[match(df[[var_map]], equivalencias$label)]
+
+    df$color_points <- pal(df$cod)
+
+    leaflet_base <- leaflet() %>%
+      addProviderTiles(map_provider) %>%
+      addRasterImage(r, colors = pal, opacity = map_opacity, project = FALSE) %>%
       addLegend(
         colors = colores,
         labels = domain_vals,
-        title = var_map,
+        title = get_var_label(var_map),
         position = "bottomright"
       )
 
   } else {
     # Si es colorNumeric u otro tipo numérico
-    leaflet_base <- leaflet_base %>%
+
+    df$color_points <- pal(df[[var_map]])
+
+    leaflet_base <- leaflet() %>%
+      addProviderTiles(map_provider) %>%
+      addRasterImage(r, colors = pal, opacity = map_opacity, project = FALSE) %>%
       addLegend(
         pal = pal,
         values = var_values,
-        title = var_map,
+        title = get_var_label(var_map),
         position = "bottomright"
       )
   }
 
   # Centrar el mapa
   leaflet_base %>%
+    addCircleMarkers(
+      data = df,
+      lng = ~Longitude,
+      lat = ~Latitude,
+      fillColor = ~color_points,   # Color de relleno (interior del punto)
+      radius = 5,
+      fillOpacity = 0.8,
+      stroke = TRUE,               # Activa el borde
+      color = "black",             # Color del borde
+      weight = 1,                  # Grosor del borde
+      opacity = 1,                 # Opacidad del borde
+      label = ~as.character(df[[var_map]]),
+      labelOptions = labelOptions(direction = "auto")
+    ) %>%
+    # addCircleMarkers(
+    #   data = df,
+    #   lng = ~Longitude,
+    #   lat = ~Latitude,
+    #   color = ~color_points,
+    #   radius = 5,
+    #   fillOpacity = 0.8,
+    #   stroke = FALSE,
+    #   label = ~as.character(df[[var_map]]),
+    #   labelOptions = labelOptions(direction = "auto")
+    # ) %>%
     setView(
       lng = mean(df$Longitude, na.rm = TRUE),
       lat = mean(df$Latitude, na.rm = TRUE),

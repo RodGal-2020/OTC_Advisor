@@ -70,14 +70,14 @@ body <- dashboardBody(
     ),
     column(width = 3,
            box(title = "🧭 Map Options", width = NULL, status = "success", solidHeader = TRUE,
-               # selectInput("var_map", "Variable a representar:",
-               #             choices = c("Air_temperature", "Relative_humidity", "Wind_speed", "UTCI"), selected = "Air_temperature"),
                uiOutput("var_map_ui"),
 
                selectInput("basemap", "Select base map",
-                           choices = c("Stadia", "Satélite", "Esri", "OSM")),
+                           choices = c("OSM", "Satélite", "Esri")),
 
                sliderInput("map_opacity", "Map opacity:", min = 0, max = 1, value = 0.5, step = 0.1),
+               sliderInput("n_raster", "Raster resolution:", min = 20, max = 200, value = 50, step = 10),
+               sliderInput("buffer_radius", "Buffer radius around data (m):", min = 100, max = 1000, value = 200, step = 50),
            ),
 
            box(title = "📌 Status", width = NULL, status = "warning", solidHeader = TRUE, collapsible = TRUE,
