@@ -8,19 +8,7 @@ header <- dashboardHeader(title = "OTC Classifier")
 
 sidebar <- dashboardSidebar(
   fileInput("file", "📤 Upload Excel, CSV, ZIP File with Shapefiles or Geopackage", accept = c(".xlsx", ".csv", ".zip", ".gpkg")),
-
-  selectInput("gender", "Select your gender",
-              choices = c("Male", "Female")),
-  selectInput("age", "Select your age",
-              choices = c("<12","13-17", "18-24", "25-34", "35-44", "45-54", "55-64", ">65")),
-  radioButtons("utci_method", "🌡️ UTCI Source:",
-               choices = c(
-                 "Includes UTCI column" = "utci",
-                 "Includes MRT column" = "mrt",
-                 "Calculate from Globe Temperature" = "tg",
-                 "Calculate from Solar Radiation" = "solar"
-               ),
-               selected = "tg"),
+  # checkboxInput("utci", "🌡️Do you want to calculate the UTCI?", value = FALSE),
   br(),
   radioButtons("class",
                label = tags$span("Select classification:",
@@ -30,14 +18,40 @@ sidebar <- dashboardSidebar(
                  "Multiclass" = "multiclass"
                ),
                selected = "binary"),
-  radioButtons("model", label = tags$span("Select model:",
-                                          title = "Choose the algorithm used for prediction."),
+  radioButtons("model",
+               label = tags$span("Select model:",
+                                 title = "Choose the algorithm used for prediction."),
                choices = c(
                  "Naive-Bayes" = "NBD",
                  "XGBoost" = "XGB"
                ),
                selected = "XGB"),
+
+  # ---- Para Naive-Bayes ----
+  conditionalPanel(
+    condition = "input.model == 'NBD'",
+    #
+    # selectInput("age",
+    #             label = "Select your age:",
+    #             choices = 18:80),   # ejemplo: edades de 18 a 80
+    #
+    # selectInput("sex",
+    #             label = "Select your sex:",
+    #             choices = c("Male", "Female"))
+  ),
+
+  # ---- Para XGBoost ----
+  conditionalPanel(
+    condition = "input.model == 'XGB'",
+
+    selectInput("gender", "Select your gender",
+                choices = c("Male", "Female")),
+    selectInput("age", "Select your age",
+                choices = c("<12","13-17", "18-24", "25-34", "35-44", "45-54", "55-64", ">65")),
+  ),
   actionLink("more_info_model", "More information", icon = icon("info-circle")),
+  br(), br(),
+  actionButton("calculate_utci", "Only Calculate UTCI", class = "btn-primary"),
   br(), br(),
   actionButton("classify", "⚙️ Classify OTC", class = "btn-primary"),
   br(), br(),

@@ -39,6 +39,34 @@ function(input, output, session) {
     })
   })
 
+  observeEvent(input$calculate_utci, {
+    req(data())
+    df <- data()
+
+    # Convertir numéricas
+    num_vars <- c("Longitude","Latitude", "Air_temperature", "Relative_humidity", "Wind_speed", "Solar_radiation")
+    for (var in num_vars) {
+      if (var %in% names(df)) {
+        df[[var]] <- suppressWarnings(as.numeric(gsub(",", ".", df[[var]])))
+      }
+    }
+
+    # Calcular UTCI y su clasificación
+    df <- calc_utci(df)
+
+    # Si no hay coordenadas, rellenar con NA
+    if (!("Latitude" %in% names(df))) {
+      df$Latitude <- NA
+    }
+    if (!("Longitude" %in% names(df))) {
+      df$Longitude <- NA
+    }
+    df <- df[c("Longitude", "Latitude", setdiff(names(df), c("Longitude", "Latitude")))]
+
+
+    # Guardar resultados para tabla
+    result_data(df)
+  })
 
   observeEvent(input$classify, {
     req(data())
@@ -53,7 +81,7 @@ function(input, output, session) {
     }
 
     # Calcular UTCI y su clasificación
-    df <- calc_utci(df, input$utci_method)
+    # if (input$utci) {df <- calc_utci(df)}
 
     # Si no hay coordenadas, rellenar con NA
     if (!("Latitude" %in% names(df))) {
@@ -137,13 +165,15 @@ function(input, output, session) {
 
     # Buscar la primera que empiece por "OTC"
     seleccion_otc <- grep("^OTC", opciones, value = TRUE)[1]
+    seleccion_utci <- grep("UTCI", opciones, value = TRUE)[1]
+
 
     # Construcción del selectInput
     selectInput(
       "var_map",
       "Variable to be represented:",
       choices  = opciones,
-      selected = seleccion_otc %||% opciones[1]  # si no hay ninguna "OTC", usa la primera
+      selected = seleccion_otc  %||% seleccion_utci %||% opciones[1]  # si no hay ninguna "OTC", usa la primera
     )
   })
 
