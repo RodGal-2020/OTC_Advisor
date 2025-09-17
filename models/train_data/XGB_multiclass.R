@@ -9,7 +9,7 @@ library(ranger)
 library(xgboost)
 library(future)
 
-load("models/train_data/splits_multiclass.RData")
+load("models/train_data/splits_multiclass4.RData")
 
 ### RANDOM FOREST
 set.seed(2302)
@@ -47,7 +47,7 @@ so_down <- recipe(heat ~ ., data = so_train) %>%
   # lineales de predictores
   step_normalize(all_numeric_predictors()) %>% # Normalizar predictores
   # numéricos
-  step_downsample(all_outcomes()) # Balanceo por downsampling
+  step_smote(all_outcomes()) # Balanceo por downsampling
 # Crear flujo de trabajo para Random Forest con downsampling
 
 
@@ -83,7 +83,7 @@ final_fit <-
 table(final_fit$.predictions[[1]]$.pred_class,final_fit$.predictions[[1]]$heat)
 
 # Recoger métricas del ajuste final
-met_xgb <- collect_metrics(final_fit)
+(met_xgb <- collect_metrics(final_fit))
 tabla_xgb_spec <- matrix(round(met_xgb$.estimate, 4))
 tabla_xgb_spec <- t(cbind(met_xgb$.metric, tabla_xgb_spec))
 colnames(tabla_xgb_spec) <- met_xgb$.metric
