@@ -16,6 +16,22 @@ The following project can run the Shiny app that allows us to:
 	  - ¿Does the data include geographic coordinates?
 	- Export the results in a Excel file, including our prediction of the OTC
 
+## Setup
+
+Just open the .Rproj file and launch the following:
+
+```{r}
+renv::install("remotes")
+remotes::install_github("RodGal-2020/ArchiData")
+renv::restore()
+```
+
+Then, run the app with:
+
+```{r}
+shiny::runApp("server")
+```
+
 ## Descripción completa
 
 ### 🧭 Propósito de la herramienta OTC_Advisor
@@ -52,7 +68,6 @@ Permitir al usuario elegir entre distintos algoritmos de clasificación (e.g., R
 	- Barra de la izquierda
 	- Convertir selects en desplegables
 	- Colores y estilo general
-
 
 8. Pedir feedback
 
