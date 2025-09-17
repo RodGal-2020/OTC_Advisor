@@ -1,15 +1,8 @@
-
-library(readxl)
-library(tidyverse)
-library(tidymodels)
-library(readxl)
-library(themis)
-library(kableExtra)
-library(ranger)
+source(here::here("models/config.R"))
 library(xgboost)
 library(future)
 
-load("models/train_data/splits_binary4.RData")
+load(paste0("models/train_data/splits_binary", version, ".RData"))
 
 ### RANDOM FOREST
 set.seed(2302)
@@ -65,18 +58,13 @@ for (i in c("accuracy", "roc_auc", "spec", "sens", "kap", "f_meas")) {
   print(xgb_fit_down %>% show_best(metric = i, n = 3))
 }
 
-
-# Seleccionar el mejor modelo basado en especificidad
+# Seleccionar el mejor modelo basado en precisión
 best_tree_spec <- xgb_fit_down %>% select_best(metric = "accuracy")
+# 4: 1   200     3          5        0.1              1         0.7
 
-# Finalizar el flujo de trabajo con el mejor modelo
-final_wf <-
-  xgb_wf_down %>%
-  finalize_workflow(best_tree_spec)
-
-# Evaluar el modelo en el conjunto de prueba
-final_fit <-
-  final_wf %>%
+# Finalizar el flujo de trabajo con el mejor modelo y evaluarlo
+final_fit <- xgb_wf_down %>%
+  finalize_workflow(best_tree_spec) %>%
   last_fit(so_split, metrics = metricas)
 
 # Recoger métricas del ajuste final
@@ -86,11 +74,8 @@ tabla_xgb_spec <- t(cbind(met_xgb$.metric, tabla_xgb_spec))
 colnames(tabla_xgb_spec) <- met_xgb$.metric
 tabla_xgb_spec <- t(tabla_xgb_spec[2,])
 
-
 ## save model
 XGB <- final_fit %>% extract_workflow()
 # save(XGB, file = "models/XGB_binary.RData")
-
-
 
 
