@@ -9,7 +9,7 @@ library(ranger)
 library(xgboost)
 library(future)
 
-load("models/train_data/splits_multiclass4.RData")
+load("models/train_data/splits_multiclassX01.RData")
 
 ### RANDOM FOREST
 set.seed(2302)
@@ -37,6 +37,7 @@ model_xgb <- boost_tree(tree_depth = tune(),
 # Preparar la receta de preprocesamiento con downsampling
 so_down <- recipe(heat ~ ., data = so_train) %>%
   step_novel(all_nominal(), -all_outcomes()) %>%
+  step_unknown(all_nominal(), -all_outcomes()) %>%
   step_dummy(all_nominal(), -all_outcomes()) %>% # Codificación
   # para variables categóricas
   step_zv(all_numeric_predictors()) %>% # Eliminar predictores numéricos

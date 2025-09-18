@@ -1,7 +1,7 @@
 source(here::here("models/config.R"))
 
 # Cargar y preparar los datos
-ruros <- readRDS("models/train_data/Ruros_Utheca_all.rds")
+ruros <- readRDS("models/train_data/Ruros_Utheca_mediterranean.rds")
 
 # belahorizonte <- readRDS("models/train_data/BH_en_sombra_modified.rds")
 # belahorizonte <- belahorizonte %>%
@@ -15,19 +15,19 @@ ruros <- ruros %>%
 #
 # data <- bind_rows(ruros, belahorizonte) # Unir ambos datasets
 data <- ruros
-data <- data %>% drop_na() # Eliminar filas con NA y heat = 3 (pocos casos))
+data <- data %>% drop_na() # Eliminar filas con NA
 
-switch(version,
-       "4" = {
-         train_idx <- which(!year(data$Date) %in% c(2024,2025))
-         test_idx  <- which(year(data$Date) %in% c(2024,2025))
-        }, # Versión 4
-       "X01" = {
-         train_idx <- which(!year(data$Date) %in% c(2024,2025))
-         test_idx  <- which(year(data$Date) %in% c(2024,2025))
-       }, # Versión 4X01
-       stop("Versión no válida, modifica el switch de splits.R")
-)
+# switch(version,
+#        "4" = {
+#          train_idx <- which(!year(data$Date) %in% c(2024,2025))
+#          test_idx  <- which(year(data$Date) %in% c(2024,2025))
+#         }, # Versión 4
+#        "X01" = {
+#          train_idx <- which(!year(data$Date) %in% c(2024,2025))
+#          test_idx  <- which(year(data$Date) %in% c(2024,2025))
+#        }, # Versión 4X01
+#        stop("Versión no válida, modifica el switch de splits.R")
+# )
 
 # Selección de variables
 data <- data %>%
@@ -40,14 +40,15 @@ set.seed(2302) # Fijar semilla para reproducibilidad
 ########################
 
 # Crear split manual
-if (dict_existe_split_manual %>% magrittr::extract2(version)) {
-  so_split <- make_splits(list(analysis = train_idx, assessment = test_idx), data = data)
-} else {
-  so_split <- initial_split(data, strata = heat) # División estratificada
-  train_idx <- so_split$in_id
-  test_idx  <- setdiff(1:nrow(data), train_idx)
-}
+# if (dict_existe_split_manual %>% magrittr::extract2(version)) {
+#   so_split <- make_splits(list(analysis = train_idx, assessment = test_idx), data = data)
+# } else {
+#   so_split <- initial_split(data, strata = heat) # División estratificada
+#   train_idx <- so_split$in_id
+#   test_idx  <- setdiff(1:nrow(data), train_idx)
+# }
 
+so_split <- initial_split(data, strata = heat) # División estratificada
 # Ahora ya puedes usar:
 so_train <- training(so_split)
 so_test  <- testing(so_split)
@@ -72,14 +73,15 @@ data <- data %>%
   select(-heat) # Eliminar la columna heat
 
 # Crear split manual o no, de nuevo
-if (dict_existe_split_manual %>% magrittr::extract2(version)) {
-  so_split <- make_splits(list(analysis = train_idx, assessment = test_idx), data = data)
-} else {
-  so_split <- initial_split(data, strata = heat) # División estratificada
-  train_idx <- so_split$in_id
-  test_idx  <- setdiff(1:nrow(data), train_idx)
-}
+# if (dict_existe_split_manual %>% magrittr::extract2(version)) {
+#   so_split <- make_splits(list(analysis = train_idx, assessment = test_idx), data = data)
+# } else {
+#   so_split <- initial_split(data, strata = heat) # División estratificada
+#   train_idx <- so_split$in_id
+#   test_idx  <- setdiff(1:nrow(data), train_idx)
+# }
 
+so_split <- initial_split(data, strata = GROUP)
 # Ahora ya puedes usar:
 so_train <- training(so_split)
 so_test  <- testing(so_split)

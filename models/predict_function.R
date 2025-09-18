@@ -1,37 +1,37 @@
 
 library(tidymodels)
 
+source("utils/change_var.R")
+
 load("models/XGB_binary.RData")
 load("models/XGB_multiclass.RData")
 
-NBD <- readRDS("models/NBD_binary.rds")
-NBD_multiclass <- readRDS("models/NBD_multiclass.rds")
+load("models/NB_binary.RData")
+load("models/NB_multiclass.RData")
 
-predict_function <- function(model, new_data, gender, age) {
+predict_function <- function(model, new_data, gender, age, clo, met_rate, season) {
   # Make predictions using the model
+  new_data <- new_data %>%
+    rename(
+      tair = Air_temperature,
+      rh = Relative_humidity,
+      wind_sp = Wind_speed,
+      mrt = Radiant_temperature) %>%
+    mutate(
+      age = age,
+      sex = gender,
+      clo = clo,
+      met_rate = met_rate,
+      Season = season
+    )
+  new_data <- change_var(new_data)
+
   if (model == "NBD"){
-    new_data <- new_data %>%
-      rename(
-        tair = Air_temperature,
-        rh = Relative_humidity,
-        wind_sp = Wind_speed,
-        tglobe = Globe_temperature
-      )
-    predictions <- predict(NBD, new_data, type = "prob")$.pred_Comfort
+    predictions <- predict(NB_binary, new_data, type = "prob")$.pred_Comfort
   }
 
   if (model == "XGB"){
-    new_data <- new_data %>%
-      rename(
-        tair = Air_temperature,
-        rh = Relative_humidity,
-        wind_sp = Wind_speed,
-        tglobe = Globe_temperature) %>%
-      mutate(
-        age = age,
-        sex = gender
-      )
-    predictions <- predict(XGB, new_data, type = "prob")$.pred_Comfort
+    predictions <- predict(XGB_binary, new_data, type = "prob")$.pred_Comfort
   }
 
   return(predictions)
@@ -39,40 +39,42 @@ predict_function <- function(model, new_data, gender, age) {
 
 
 
-predict_function_multi <- function(model, new_data, gender, age) {
+predict_function_multi <- function(model, new_data, gender, age, clo, met_rate, season) {
   # Make predictions using the model
+  new_data <- new_data %>%
+    rename(
+      tair = Air_temperature,
+      rh = Relative_humidity,
+      wind_sp = Wind_speed,
+      mrt = Radiant_temperature) %>%
+    mutate(
+      age = age,
+      sex = gender,
+      clo = clo,
+      met_rate = met_rate,
+      Season = season
+    )
+  new_data <- change_var(new_data)
+
   if (model == "XGB"){
-    new_data <- new_data %>%
-      rename(
-        tair = Air_temperature,
-        rh = Relative_humidity,
-        wind_sp = Wind_speed,
-        tglobe = Globe_temperature) %>%
-      mutate(
-        age = age,
-        sex = gender
-      )
     predictions <- predict(XGB_multiclass, new_data)$.pred_class
   }
   # Make predictions using the model
   if (model == "NBD"){
-    new_data <- new_data %>%
-      rename(
-        tair = Air_temperature,
-        rh = Relative_humidity,
-        wind_sp = Wind_speed,
-        tglobe = Globe_temperature
-      )
-    predictions <- predict(NBD_multiclass, new_data)
-    predictions <- predictions %>% mutate(.pred_class = case_when(
-          .pred_class == -2 ~ "Very cold",
-          .pred_class == -1 ~ "Cold",
-          .pred_class ==  0 ~ "Neither cool nor warm",
-          .pred_class ==  1 ~ "Warm",
-          .pred_class ==  2 ~ "Very hot"
-          ))
-    predictions <- predictions$.pred_class
+    predictions <- predict(NB_multiclass, new_data)$.pred_class
   }
 
-  return(predictions)
+  predictions <- tibble(predictions = predictions) %>%
+    mutate(predictions = as.numeric(as.character(predictions))) %>%
+    mutate(predictions = case_when(
+      predictions == -2 ~ "Very cold",
+      predictions == -1 ~ "Cold",
+      predictions ==  0 ~ "Neither cool nor warm",
+      predictions ==  1 ~ "Warm",
+      predictions ==  2 ~ "Very hot"
+      ))
+
+
+
+  return(as.character(predictions$predictions))
 }

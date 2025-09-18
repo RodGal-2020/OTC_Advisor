@@ -9,7 +9,7 @@ library(naivebayes)
 library(discrim)
 library(future)
 
-load("models/train_data/splits_binary2.RData")
+load("models/train_data/splits_binaryX01.RData")
 
 # --------------------------
 # NAIVE BAYES con tidymodels
@@ -35,6 +35,7 @@ model_nb <- naive_Bayes(
 # Receta de preprocesamiento (igual que antes)
 so_down <- recipe(GROUP ~ ., data = so_train) %>%
   step_novel(all_nominal(), -all_outcomes()) %>%
+  step_unknown(all_nominal(), -all_outcomes()) %>%
   step_dummy(all_nominal(), -all_outcomes()) %>%
   step_zv(all_numeric_predictors()) %>%
   step_corr(all_numeric_predictors()) %>%

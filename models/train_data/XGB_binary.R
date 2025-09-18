@@ -30,6 +30,7 @@ model_xgb <- boost_tree(tree_depth = tune(),
 # Preparar la receta de preprocesamiento con downsampling
 so_down <- recipe(GROUP ~ ., data = so_train) %>%
   step_novel(all_nominal(), -all_outcomes()) %>%
+  step_unknown(all_nominal(), -all_outcomes()) %>%
   step_dummy(all_nominal(), -all_outcomes()) %>% # Codificación
   # para variables categóricas
   step_zv(all_numeric_predictors()) %>% # Eliminar predictores numéricos
@@ -75,7 +76,7 @@ colnames(tabla_xgb_spec) <- met_xgb$.metric
 tabla_xgb_spec <- t(tabla_xgb_spec[2,])
 
 ## save model
-XGB <- final_fit %>% extract_workflow()
-# save(XGB, file = "models/XGB_binary.RData")
+XGB_binary <- final_fit %>% extract_workflow()
+# save(XGB_binary, file = "models/XGB_binary.RData")
 
 

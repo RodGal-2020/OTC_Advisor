@@ -81,7 +81,7 @@ function(input, output, session) {
     }
 
     # Calcular UTCI y su clasificación
-    # if (input$utci) {df <- calc_utci(df)}
+    df <- calc_utci(df)
 
     # Si no hay coordenadas, rellenar con NA
     if (!("Latitude" %in% names(df))) {
@@ -94,9 +94,9 @@ function(input, output, session) {
     # Clasificación OTC con modelo cargado
     if (!is.null(input$model) && input$model != "") {
       if(input$class == "binary") {
-        df$OTC_Probability <- predict_function(input$model, df, input$gender, input$age)*100
+        df$OTC_Probability <- predict_function(input$model, df, input$gender, input$age, input$clo, input$met_rate, input$season)*100
       } else if (input$class == "multiclass") {
-        df$OTC_Prediction <- predict_function_multi(input$model, df, input$gender, input$age)
+        df$OTC_Prediction <- predict_function_multi(input$model, df, input$gender, input$age, input$clo, input$met_rate, input$season)
         niveles_otc <- c("Very cold", "Cold", "Neither cool nor warm", "Warm", "Very hot")
         df$OTC_Prediction <- factor(df$OTC_Prediction, levels = niveles_otc)
       }
