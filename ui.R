@@ -24,9 +24,11 @@ sidebar <- dashboardSidebar(
                                  title = "Choose the algorithm used for prediction."),
                choices = c(
                  "Naive-Bayes" = "NBD",
-                 "XGBoost" = "XGB"
+                 "XGBoost" = "XGB",
+                 "Multilayer-Perceptron" = "MLP"
                ),
                selected = "XGB"),
+  actionLink("more_info_model", "More information", icon = icon("info-circle")),
 
 
   # ---- Para XGBoost y Naive-Bayes ----
@@ -53,7 +55,6 @@ sidebar <- dashboardSidebar(
     selectInput("season", "Select the season",
                 choices = c("Summer","Autumn", "Winter", "Spring")),
   ),
-  actionLink("more_info_model", "More information", icon = icon("info-circle")),
   br(),
   actionButton("classify", "⚙️ Classify OTC", class = "btn-primary"),
   br(), br(),

@@ -68,6 +68,8 @@ final_fit <- xgb_wf_down %>%
   finalize_workflow(best_tree_spec) %>%
   last_fit(so_split, metrics = metricas)
 
+table(final_fit$.predictions[[1]]$.pred_class,final_fit$.predictions[[1]]$GROUP)
+
 # Recoger métricas del ajuste final
 (met_xgb <- collect_metrics(final_fit))
 tabla_xgb_spec <- matrix(round(met_xgb$.estimate, 4))

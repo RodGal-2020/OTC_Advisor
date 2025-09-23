@@ -70,6 +70,7 @@ final_nb_wf <- nb_wf_down %>%
 final_nb_fit <- final_nb_wf %>%
   last_fit(so_split, metrics = metricas)
 
+table(final_nb_fit$.predictions[[1]]$.pred_class,final_nb_fit$.predictions[[1]]$GROUP)
 
 # Métricas finales
 (met_nb <- collect_metrics(final_nb_fit))
