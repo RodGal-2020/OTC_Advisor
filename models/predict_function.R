@@ -9,6 +9,9 @@ load("models/XGB_multiclass.RData")
 load("models/NB_binary.RData")
 load("models/NB_multiclass.RData")
 
+load("models/MLP_binary.RData")
+load("models/MLP_multiclass.RData")
+
 predict_function <- function(model, new_data, gender, age, clo, met_rate, season) {
   # Make predictions using the model
   new_data <- new_data %>%
@@ -26,13 +29,11 @@ predict_function <- function(model, new_data, gender, age, clo, met_rate, season
     )
   new_data <- change_var(new_data)
 
-  if (model == "NBD"){
-    predictions <- predict(NB_binary, new_data, type = "prob")$.pred_Comfort
-  }
-
-  if (model == "XGB"){
-    predictions <- predict(XGB_binary, new_data, type = "prob")$.pred_Comfort
-  }
+  predictions = switch(model,
+    "MLP" = predict(MLP_binary, new_data, type = "prob")$.pred_Comfort,
+    "NBD" = predict(NB_binary, new_data, type = "prob")$.pred_Comfort,
+    "XGB" = predict(XGB_binary, new_data, type = "prob")$.pred_Comfort
+  )
 
   return(predictions)
 }
@@ -56,13 +57,12 @@ predict_function_multi <- function(model, new_data, gender, age, clo, met_rate, 
     )
   new_data <- change_var(new_data)
 
-  if (model == "XGB"){
-    predictions <- predict(XGB_multiclass, new_data)$.pred_class
-  }
-  # Make predictions using the model
-  if (model == "NBD"){
-    predictions <- predict(NB_multiclass, new_data)$.pred_class
-  }
+
+  predictions = switch(model,
+     "MLP" = predict(MLP_multiclass, new_data, type = "prob")$.pred_Comfort,
+     "NBD" = predict(NB_multiclass, new_data, type = "prob")$.pred_Comfort,
+     "XGB" = predict(XGB_multiclass, new_data, type = "prob")$.pred_Comfort
+  )
 
   predictions <- tibble(predictions = predictions) %>%
     mutate(predictions = as.numeric(as.character(predictions))) %>%
