@@ -173,7 +173,7 @@ function(input, output, session) {
       "var_map",
       "Variable to be represented:",
       choices  = opciones,
-      selected = seleccion_otc  %||% seleccion_utci %||% opciones[1]  # si no hay ninguna "OTC", usa la primera
+      selected = coalesce(seleccion_otc, seleccion_utci, opciones[1])  # si no hay ninguna "OTC", usa la primera
     )
   })
 
@@ -182,7 +182,8 @@ function(input, output, session) {
       title = "Model information",
       HTML("
       <b>Naive-Bayes:</b> A simple probabilistic model based on Bayes’ theorem. It assumes independence between predictors and works well with small datasets.<br><br>
-      <b>XGBoost:</b> An advanced ensemble learning algorithm based on gradient boosting. It is highly accurate and efficient, especially for structured data.<br>
+      <b>XGBoost:</b> An advanced ensemble learning algorithm based on gradient boosting. It is highly accurate and efficient, especially for structured data.<br><br>
+      <b>Multilayer Perceptron:</b> A type of artificial neural network composed of multiple layers of interconnected nodes. It can model complex, non-linear relationships and is effective for both classification and regression tasks.<br>
     "),
       easyClose = TRUE,
       footer = modalButton("Close")

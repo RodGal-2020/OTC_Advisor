@@ -59,9 +59,9 @@ predict_function_multi <- function(model, new_data, gender, age, clo, met_rate, 
 
 
   predictions = switch(model,
-     "MLP" = predict(MLP_multiclass, new_data, type = "prob")$.pred_Comfort,
-     "NBD" = predict(NB_multiclass, new_data, type = "prob")$.pred_Comfort,
-     "XGB" = predict(XGB_multiclass, new_data, type = "prob")$.pred_Comfort
+     "MLP" = predict(MLP_multiclass, new_data)$.pred_class,
+     "NBD" = predict(NB_multiclass, new_data)$.pred_class,
+     "XGB" = predict(XGB_multiclass, new_data)$.pred_class
   )
 
   predictions <- tibble(predictions = predictions) %>%
