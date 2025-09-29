@@ -19,24 +19,28 @@ source("utils/raster_map2.R")
 source("models/predict_function.R")
 # source("utils/map_module.R")
 
-
 function(input, output, session) {
-
   data <- reactiveVal(NULL)
   result_data <- reactiveVal(NULL)
-  result_data_raster <- reactiveVal(NULL)  # para guardar el raster
+  result_data_raster <- reactiveVal(NULL) # para guardar el raster
 
   observeEvent(input$file, {
     req(input$file)
 
-    tryCatch({
-      df <- load_file(input$file)
-      data(df)
-      showNotification("✅ File uploaded successfully", type = "message")
-    }, error = function(e) {
-      showNotification(paste("❌ Error reading file:", e$message), type = "error")
-      data(NULL)
-    })
+    tryCatch(
+      {
+        df <- load_file(input$file)
+        data(df)
+        showNotification("✅ File uploaded successfully", type = "message")
+      },
+      error = function(e) {
+        showNotification(
+          paste("❌ Error reading file:", e$message),
+          type = "error"
+        )
+        data(NULL)
+      }
+    )
   })
 
   observeEvent(input$calculate_utci, {
@@ -44,7 +48,14 @@ function(input, output, session) {
     df <- data()
 
     # Convertir numéricas
-    num_vars <- c("Longitude","Latitude", "Air_temperature", "Relative_humidity", "Wind_speed", "Solar_radiation")
+    num_vars <- c(
+      "Longitude",
+      "Latitude",
+      "Air_temperature",
+      "Relative_humidity",
+      "Wind_speed",
+      "Solar_radiation"
+    )
     for (var in num_vars) {
       if (var %in% names(df)) {
         df[[var]] <- suppressWarnings(as.numeric(gsub(",", ".", df[[var]])))
@@ -61,8 +72,11 @@ function(input, output, session) {
     if (!("Longitude" %in% names(df))) {
       df$Longitude <- NA
     }
-    df <- df[c("Longitude", "Latitude", setdiff(names(df), c("Longitude", "Latitude")))]
-
+    df <- df[c(
+      "Longitude",
+      "Latitude",
+      setdiff(names(df), c("Longitude", "Latitude"))
+    )]
 
     # Guardar resultados para tabla
     result_data(df)
@@ -73,7 +87,14 @@ function(input, output, session) {
     df <- data()
 
     # Convertir numéricas
-    num_vars <- c("Longitude","Latitude", "Air_temperature", "Relative_humidity", "Wind_speed", "Solar_radiation")
+    num_vars <- c(
+      "Longitude",
+      "Latitude",
+      "Air_temperature",
+      "Relative_humidity",
+      "Wind_speed",
+      "Solar_radiation"
+    )
     for (var in num_vars) {
       if (var %in% names(df)) {
         df[[var]] <- suppressWarnings(as.numeric(gsub(",", ".", df[[var]])))
@@ -93,21 +114,46 @@ function(input, output, session) {
 
     # Clasificación OTC con modelo cargado
     if (!is.null(input$model) && input$model != "") {
-      if(input$class == "binary") {
-        df$OTC_Probability <- predict_function(input$model, df, input$gender, input$age, input$clo, input$met_rate, input$season)*100
+      if (input$class == "binary") {
+        df$OTC_Probability <- predict_function(
+          input$model,
+          df,
+          input$gender,
+          input$age,
+          input$clo,
+          input$met_rate,
+          input$season
+        ) *
+          100
       } else if (input$class == "multiclass") {
-        df$OTC_Prediction <- predict_function_multi(input$model, df, input$gender, input$age, input$clo, input$met_rate, input$season)
-        niveles_otc <- c("Very cold", "Cold", "Neither cool nor warm", "Warm", "Very hot")
+        df$OTC_Prediction <- predict_function_multi(
+          input$model,
+          df,
+          input$gender,
+          input$age,
+          input$clo,
+          input$met_rate,
+          input$season
+        )
+        niveles_otc <- c(
+          "Very cold",
+          "Cold",
+          "Neither cool nor warm",
+          "Warm",
+          "Very hot"
+        )
         df$OTC_Prediction <- factor(df$OTC_Prediction, levels = niveles_otc)
       }
     }
 
-    df <- df[c("Longitude", "Latitude", setdiff(names(df), c("Longitude", "Latitude")))]
-
+    df <- df[c(
+      "Longitude",
+      "Latitude",
+      setdiff(names(df), c("Longitude", "Latitude"))
+    )]
 
     # Guardar resultados para tabla
     result_data(df)
-
 
     # Renderizar mapa de variable elegida
     # render_variable_map(output, result_data, var = input$var_map)
@@ -116,7 +162,14 @@ function(input, output, session) {
   map_leaflet <- reactive({
     df <- result_data()
     if (!anyNA(df[c("Longitude", "Latitude")])) {
-      raster_map(df, input$var_map, input$basemap, input$map_opacity, n = input$n_raster, buffer_dist = input$buffer_radius)
+      raster_map(
+        df,
+        input$var_map,
+        input$basemap,
+        input$map_opacity,
+        n = input$n_raster,
+        buffer_dist = input$buffer_radius
+      )
     } else {
       leaflet() %>%
         addTiles() %>%
@@ -148,7 +201,6 @@ function(input, output, session) {
     datatable(df, options = list(scrollX = TRUE))
   })
 
-
   output$var_map_ui <- renderUI({
     df <- result_data()
     req(df)
@@ -157,39 +209,54 @@ function(input, output, session) {
     num_vars <- names(df)[sapply(df, is.numeric)]
 
     # Detectar columnas categóricas: factor o character
-    cat_vars <- names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
+    cat_vars <- names(df)[sapply(df, function(x) {
+      is.factor(x) || is.character(x)
+    })]
 
-    todas_vars <- c(num_vars, cat_vars)  # ordenar alfabéticamente
+    todas_vars <- c(num_vars, cat_vars) # ordenar alfabéticamente
     # Vector de opciones filtradas
-    opciones <- intersect(todas_vars, c("Air_temperature", "Globe_temperature", "Relative_humidity", "Wind_speed", "Radiant_temperature", "UTCI", "Classification.UTCI", "OTC_Probability", "OTC_Prediction"))
+    opciones <- intersect(
+      todas_vars,
+      c(
+        "Air_temperature",
+        "Globe_temperature",
+        "Relative_humidity",
+        "Wind_speed",
+        "Radiant_temperature",
+        "UTCI",
+        "Classification.UTCI",
+        "OTC_Probability",
+        "OTC_Prediction"
+      )
+    )
 
     # Buscar la primera que empiece por "OTC"
     seleccion_otc <- grep("^OTC", opciones, value = TRUE)[1]
     seleccion_utci <- grep("UTCI", opciones, value = TRUE)[1]
 
-
     # Construcción del selectInput
     selectInput(
       "var_map",
       "Variable to be represented:",
-      choices  = opciones,
-      selected = coalesce(seleccion_otc, seleccion_utci, opciones[1])  # si no hay ninguna "OTC", usa la primera
+      choices = opciones,
+      selected = coalesce(seleccion_otc, seleccion_utci, opciones[1]) # si no hay ninguna "OTC", usa la primera
     )
   })
 
   observeEvent(input$more_info_model, {
     showModal(modalDialog(
       title = "Model information",
-      HTML("
+      HTML(
+        "
       <b>Naive-Bayes:</b> A simple probabilistic model based on Bayes’ theorem. It assumes independence between predictors and works well with small datasets.<br><br>
       <b>XGBoost:</b> An advanced ensemble learning algorithm based on gradient boosting. It is highly accurate and efficient, especially for structured data.<br><br>
       <b>Multilayer Perceptron:</b> A type of artificial neural network composed of multiple layers of interconnected nodes. It can model complex, non-linear relationships and is effective for both classification and regression tasks.<br>
-    "),
+    "
+      ),
       easyClose = TRUE,
       footer = modalButton("Close")
     ))
   })
-
 
   output$download <- downloadHandler(
     filename = function() {
@@ -205,5 +272,4 @@ function(input, output, session) {
     req(result_data())
     status_summary(result_data())
   })
-
 }
